@@ -1,5 +1,7 @@
 const restify = require('restify');
 const _       = require('lodash');
+const fperr   = require('./FlagpoleErr');
+
 
 var serverRestify;
 var requestTypes          = new Map();
@@ -17,26 +19,30 @@ function init(server)
   requestTypes.set('opts',  serverRestify.opts);
 }
 
-function registerAPI(name,
-                     descriptiveName,
-                     description,
-                     ver,
-                     apiHandler)
+
+function registerAPIDirect(name,
+                           descriptiveName,
+                           description,
+                           ver,
+                           apiHandler)
 {
   // Simple validation
   if (!serverRestify || !name || !ver || !apiHandler) {
-    return Promise.reject(false);
+    return new fperr.FlagpoleErr('ERR_BAD_ARG');
   }
 
   // Validate version format
   if (!ver.match(/(\d+\.)?(\d+\.)?(\d+)/)) {
-    return Promise.reject(false);
+    return new fperr.FlagpoleErr('ERR_BAD_ARG', 'Invalid version format');
   }
 
   // Create our new API token
   var apiToken = _.lowerCase(_.trim(name)) + ':' + ver.toString();
 
-  // TODO Has this API already been registered?
+  // Has this API already been registered?
+  if (registeredAPIsByToken.get(apiToken)) {
+    return new fperr.FlagpoleErr('ERR_API_ALREADY_REG', 'Attempted to register same API more than once');
+  }
 
   var newAPI = {
     name,
@@ -60,19 +66,77 @@ function registerAPI(name,
         // Register the route
         var funcRequestHandler = requestTypes.get(httpRequestType);
         if (funcRequestHandler) {
-          funcRequestHandler.call(serverRestify, {path: pathInfo.path, version: newAPI.ver}, pathInfo.handler)
+          funcRequestHandler.call(serverRestify,
+                                  {path: pathInfo.path, version: newAPI.ver},
+                                  pathInfo.handler)
         }
+      }
+      else {
+        throw new fperr.FlagpoleErr('ERR_REGISTER_ROUTE',
+                                    `Bad request type: "${pathInfo.requestType}"`);
       }
     });
   }
-  catch (err) {
-    return Promise.reject(false);
+  catch (error) {
+    if (error instanceof fperr.FlagpoleErr) {
+      return error;
+    }
+    return new fperr.FlagpoleErr('ERR_REGISTER_ROUTE',
+                                 `Could not register route: "${pathInfo.requestType}", "${pathInfo.path}", ${newAPI.ver}`,
+                                 error);
   }
 
   // Add to the main API collection
   registeredAPIsByToken.set(apiToken, newAPI);
 
-  return Promise.resolve(true);
+  // Let the API know
+  if (newAPI.apiHandler.init) {
+    newApi.apiHandler.init(serverRectify, apiToken);
+  }
 }
+
+
+function registerAPIFromFile(name,
+                             descriptiveName,
+                             description,
+                             ver,
+                             fileName)
+{
+  var newAPI;
+  try {
+    newAPI = require(fileName);
+  } catch(error) {
+    return new fperr.FlagpoleErr('ERR_FILE_LOAD', 'Could not load API file', error);
+  }
+  return registerAPIDirect(name,
+                           descriptiveName,
+                           description,
+                           ver,
+                           newAPI);
+}
+
+
+function registerAPI(name,
+                     descriptiveName,
+                     description,
+                     ver,
+                     pathOrHandler)
+{
+  if (typeof pathOrHandler === "object") {
+    return registerAPIDirect(name,
+                             descriptiveName,
+                             description,
+                             ver,
+                             pathOrHandler);
+  }
+  else {
+    return registerAPIFromFile(name,
+                               descriptiveName,
+                               description,
+                               ver,
+                               pathOrHandler);
+  }
+}
+
 
 module.exports = { init, registerAPI };
