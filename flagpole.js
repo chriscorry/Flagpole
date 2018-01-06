@@ -8,17 +8,11 @@ var requestTypes          = new Map();
 var registeredAPIsByToken = new Map();
 
 
-function init(server)
-{
-  serverRestify = server;
-  requestTypes.set('get',   serverRestify.get);
-  requestTypes.set('post',  serverRestify.post);
-  requestTypes.set('put',   serverRestify.put);
-  requestTypes.set('patch', serverRestify.patch);
-  requestTypes.set('del',   serverRestify.del);
-  requestTypes.set('opts',  serverRestify.opts);
-}
-
+/****************************************************************************
+ **                                                                        **
+ ** PRIVATE registerAPIDirect(...)                                         **
+ **                                                                        **
+ ****************************************************************************/
 
 function registerAPIDirect(name,
                            descriptiveName,
@@ -96,6 +90,12 @@ function registerAPIDirect(name,
 }
 
 
+/****************************************************************************
+ **                                                                        **
+ ** PRIVATE registerAPIFromFile(...)                                       **
+ **                                                                        **
+ ****************************************************************************/
+
 function registerAPIFromFile(name,
                              descriptiveName,
                              description,
@@ -115,6 +115,30 @@ function registerAPIFromFile(name,
                            newAPI);
 }
 
+
+/****************************************************************************
+ **                                                                        **
+ ** PUBLIC init(server: Required, Restify server instance)                 **
+ **                                                                        **
+ ****************************************************************************/
+
+function init(server)
+{
+  serverRestify = server;
+  requestTypes.set('get',   serverRestify.get);
+  requestTypes.set('post',  serverRestify.post);
+  requestTypes.set('put',   serverRestify.put);
+  requestTypes.set('patch', serverRestify.patch);
+  requestTypes.set('del',   serverRestify.del);
+  requestTypes.set('opts',  serverRestify.opts);
+}
+
+
+/****************************************************************************
+ **                                                                        **
+ ** PUBLIC registerAPI(...)                                                **
+ **                                                                        **
+ ****************************************************************************/
 
 function registerAPI(name,
                      descriptiveName,
@@ -139,4 +163,28 @@ function registerAPI(name,
 }
 
 
-module.exports = { init, registerAPI };
+/****************************************************************************
+ **                                                                        **
+ ** PUBLIC queryAPIs(...)                                                  **
+ **                                                                        **
+ ****************************************************************************/
+
+function queryAPIs()
+{
+  var apis = [];
+
+  registeredAPIsByToken.forEach((newAPI) => {
+    apis.push({
+        name: newAPI.name,
+        descriptiveName: newAPI.descriptiveName,
+        description: newAPI.description,
+        ver: newAPI.ver,
+        apiToken: newAPI.apiToken
+      });
+  });
+
+  return apis;
+}
+
+
+module.exports = { init, registerAPI, queryAPIs };
