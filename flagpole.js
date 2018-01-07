@@ -10,6 +10,24 @@ var registeredAPIsByToken = new Map();
 
 /****************************************************************************
  **                                                                        **
+ ** Utilities                                                              **
+ **                                                                        **
+ ****************************************************************************/
+
+function filterMap(map, test)
+{
+  var newMap = new Map();
+  map.forEach((value, key) => {
+    if (test(key, value)) {
+      newMap.set(key, value);
+    }
+  });
+  return newMap;
+}
+
+
+/****************************************************************************
+ **                                                                        **
  ** PRIVATE registerAPIDirect(...)                                         **
  **                                                                        **
  ****************************************************************************/
@@ -31,7 +49,7 @@ function registerAPIDirect(name,
   }
 
   // Create our new API token
-  var apiToken = _.lowerCase(_.trim(name)) + ':' + ver.toString();
+  var apiToken = _.toLower(_.trim(name)) + ':' + _.trim(ver);
 
   // Has this API already been registered?
   if (registeredAPIsByToken.get(apiToken)) {
@@ -50,7 +68,7 @@ function registerAPIDirect(name,
   try {
     // Register the routes
     // newApi.apiHandler.flagpoleHandlers is an array of pathInfos
-    // pathInfo { requestType, path, handler }
+    // pathInfo { requestType, path, handler, route (which we set) }
     newAPI.apiHandler.flagpoleHandlers.forEach((pathInfo) => {
 
       // Validate requestType
@@ -60,9 +78,11 @@ function registerAPIDirect(name,
         // Register the route
         var funcRequestHandler = requestTypes.get(httpRequestType);
         if (funcRequestHandler) {
-          funcRequestHandler.call(serverRestify,
-                                  {path: pathInfo.path, version: newAPI.ver},
-                                  pathInfo.handler)
+          pathInfo.route = funcRequestHandler.call(serverRestify, {
+                                                    path: pathInfo.path,
+                                                    version: newAPI.ver
+                                                  },
+                                                  pathInfo.handler);
         }
       }
       else {
@@ -122,7 +142,7 @@ function registerAPIFromFile(name,
  **                                                                        **
  ****************************************************************************/
 
-function init(server)
+function initialize(server)
 {
   serverRestify = server;
   requestTypes.set('get',   serverRestify.get);
@@ -165,6 +185,94 @@ function registerAPI(name,
 
 /****************************************************************************
  **                                                                        **
+ ** PRIVATE unregisterAPIInfo(...)                                         **
+ **                                                                        **
+ ****************************************************************************/
+
+function unregisterAPIInfo(apiUnregInfo)
+{
+  // Iterate over each route and remove
+  apiUnregInfo.apiHandler.flagpoleHandlers.forEach((pathInfo) => {
+
+    // Unregister the route
+    serverRestify.rm(pathInfo.route);
+    pathInfo.route = undefined;
+  });
+}
+
+
+/****************************************************************************
+ **                                                                        **
+ ** PRIVATE unregisterAllAPIs(...)                                         **
+ **                                                                        **
+ ****************************************************************************/
+
+function unregisterAllAPIs()
+{
+  registeredAPIsByToken.forEach((apiInfo, apiToken) => {
+    unregisterAPIInfo(apiInfo);
+  });
+  registeredAPIsByToken.clear();
+  return true;
+}
+
+
+/****************************************************************************
+ **                                                                        **
+ ** PUBLIC unregisterAPI(...)                                              **
+ **                                                                        **
+ ****************************************************************************/
+
+function unregisterAPI(nameOrToken, ver)
+{
+  var found = false;
+
+  // No args means wipe them all out
+  if (!nameOrToken && !ver) {
+    return unregisterAllAPIs();
+  }
+
+  // Move through the map and process each item
+  registeredAPIsByToken = filterMap(registeredAPIsByToken, (apiToken, apiInfo) => {
+
+    // If a version was specified, nameOrToken is a name and only the
+    // specified version should be removed
+    if ((ver && apiInfo.name === nameOrToken && apiInfo.ver === ver) ||
+
+        // If a version was NOT specified and the tokens match, that's our target
+        (!ver && apiInfo.apiToken === nameOrToken) ||
+
+        // If a version was NOT specified and the names match, we want to
+        // remove ALL versions of this API
+        (!ver && apiInfo.name === nameOrToken)) {
+
+      // Out with the routes and keep out of map
+      unregisterAPIInfo(apiInfo);
+      found = true;
+      return false;
+    }
+
+    // Keep in the map
+    return true;
+  });
+
+  return found;
+}
+
+
+/****************************************************************************
+ **                                                                        **
+ ** PUBLIC loadAPIConfig(...)                                              **
+ **                                                                        **
+ ****************************************************************************/
+
+function loadAPIConfig(configFile)
+{
+}
+
+
+/****************************************************************************
+ **                                                                        **
  ** PUBLIC queryAPIs(...)                                                  **
  **                                                                        **
  ****************************************************************************/
@@ -187,4 +295,7 @@ function queryAPIs()
 }
 
 
-module.exports = { init, registerAPI, queryAPIs };
+module.exports = { initialize,
+                   registerAPI,
+                   unregisterAPI,
+                   queryAPIs };
