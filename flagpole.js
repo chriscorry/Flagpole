@@ -1,4 +1,5 @@
 const restify = require('restify');
+const path    = require('path');
 const _       = require('lodash');
 const fperr   = require('./FlagpoleErr');
 
@@ -33,10 +34,11 @@ function filterMap(map, test)
  ****************************************************************************/
 
 function registerAPIDirect(name,
-                           descriptiveName,
-                           description,
+                           descriptiveName, // opt
+                           description, // opt
                            ver,
-                           apiHandler)
+                           apiHandler,
+                           fileName) // opt
 {
   // Simple validation
   if (!serverRestify || !name || !ver || !apiHandler) {
@@ -62,7 +64,8 @@ function registerAPIDirect(name,
     description,
     ver,
     apiHandler,
-    apiToken
+    apiToken,
+    fileName
   };
 
   try {
@@ -72,7 +75,7 @@ function registerAPIDirect(name,
     newAPI.apiHandler.flagpoleHandlers.forEach((pathInfo) => {
 
       // Validate requestType
-      var httpRequestType = _.lowerCase(_.trim(pathInfo.requestType));
+      var httpRequestType = _.toLower(_.trim(pathInfo.requestType));
       if (httpRequestType.match('get|post|put|patch|del|opts')) {
 
         // Register the route
@@ -104,8 +107,8 @@ function registerAPIDirect(name,
   registeredAPIsByToken.set(apiToken, newAPI);
 
   // Let the API know
-  if (newAPI.apiHandler.init) {
-    newApi.apiHandler.init(serverRectify, apiToken);
+  if (newAPI.apiHandler.initialize) {
+    newApi.apiHandler.initialize(serverRestify, apiToken);
   }
 }
 
@@ -132,7 +135,8 @@ function registerAPIFromFile(name,
                            descriptiveName,
                            description,
                            ver,
-                           newAPI);
+                           newAPI,
+                           path.normalize(fileName));
 }
 
 
@@ -243,7 +247,7 @@ function unregisterAPI(nameOrToken, ver)
         (!ver && apiInfo.apiToken === nameOrToken) ||
 
         // If a version was NOT specified and the names match, we want to
-        // remove ALL versions of this API
+        // remove ALL versions of this API, including this one
         (!ver && apiInfo.name === nameOrToken)) {
 
       // Out with the routes and keep out of map
@@ -268,6 +272,11 @@ function unregisterAPI(nameOrToken, ver)
 
 function loadAPIConfig(configFile)
 {
+  try {
+    var config = require(configFile);
+  } catch(error) {
+    return new fperr.FlagpoleErr('ERR_FILE_LOAD', 'Could not load config file', error);
+  }
 }
 
 
@@ -282,13 +291,14 @@ function queryAPIs()
   var apis = [];
 
   registeredAPIsByToken.forEach((newAPI) => {
-    apis.push({
-        name: newAPI.name,
-        descriptiveName: newAPI.descriptiveName,
-        description: newAPI.description,
-        ver: newAPI.ver,
-        apiToken: newAPI.apiToken
-      });
+    apis.push(_.pick(newAPI, [
+      "name",
+      "descriptiveName",
+      "description",
+      "ver",
+      "apiToken",
+      "fileName"
+    ]));
   });
 
   return apis;

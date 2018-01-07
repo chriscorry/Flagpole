@@ -1,9 +1,6 @@
 const restify  = require('restify');
 const flagpole = require('./Flagpole');
 
-const testAPI  = require('./TestAPI');
-const testAPI2 = require('./TestAPI2');
-
 
 /****************************************************************************
  **                                                                        **
@@ -25,11 +22,11 @@ const port = process.env.PORT || 3000;
  **                                                                        **
  ****************************************************************************/
 
-flagpole.registerAPI('test', undefined, undefined, '1.0.0', testAPI);
-flagpole.registerAPI('test2', undefined, undefined, '2.0.0', testAPI2);
-flagpole.registerAPI('test2', undefined, undefined, '3.0.0', './TestAPI3.js');
-
-flagpole.unregisterAPI();
+var err;
+flagpole.registerAPI('dog',        undefined, undefined, '1.0.0', './api/dog_1.0.0.js');
+flagpole.registerAPI('management', undefined, undefined, '1.0.0', './api/management_1.0.0.js');
+flagpole.registerAPI('test',       undefined, undefined, '1.0.0', './api/testapi_1.0.0.js');
+flagpole.registerAPI('test',       undefined, undefined, '2.0.0', './api/testapi_2.0.0.js');
 
 
 // Start processing requests

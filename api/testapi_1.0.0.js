@@ -1,10 +1,10 @@
 //
-// TEST API 2
+// TEST API
 //
 
 function biteABigSandwich(req, res, next)
 {
-    res.send('Called biteABigSandwich version 2');
+    res.send('Called biteABigSandwich version 1.0.0');
     return next();
 }
 
