@@ -22,11 +22,8 @@ const port = process.env.PORT || 3000;
  **                                                                        **
  ****************************************************************************/
 
-var err;
-flagpole.registerAPI('dog',        undefined, undefined, '1.0.0', './api/dog_1.0.0.js');
-flagpole.registerAPI('management', undefined, undefined, '1.0.0', './api/management_1.0.0.js');
-flagpole.registerAPI('test',       undefined, undefined, '1.0.0', './api/testapi_1.0.0.js');
-flagpole.registerAPI('test',       undefined, undefined, '2.0.0', './api/testapi_2.0.0.js');
+var err = flagpole.loadAPIConfig('./apiconfig.json')
+if (err) console.log(err);
 
 
 // Start processing requests

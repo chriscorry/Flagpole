@@ -55,7 +55,9 @@ function registerAPIDirect(name,
 
   // Has this API already been registered?
   if (registeredAPIsByToken.get(apiToken)) {
-    return new fperr.FlagpoleErr('ERR_API_ALREADY_REG', 'Attempted to register same API more than once');
+
+    // Unregister what's currently there
+    unregisterAPI(apiToken);
   }
 
   var newAPI = {
@@ -272,10 +274,35 @@ function unregisterAPI(nameOrToken, ver)
 
 function loadAPIConfig(configFile)
 {
+  // Load up the file
+  var config;
   try {
-    var config = require(configFile);
+    config = require(configFile);
   } catch(error) {
     return new fperr.FlagpoleErr('ERR_FILE_LOAD', 'Could not load config file', error);
+  }
+
+  // Now process the config data
+  try {
+    var apis = config['apis'];
+
+    // Process each api in return
+    apis.forEach((api) => {
+      if (api.versions) {
+        api.versions.forEach((ver) => {
+            var err = registerAPI(api.name,
+                                  api.descriptiveName,
+                                  api.description,
+                                  ver.ver,
+                                  ver.fileName);
+            if (err) {
+              return err;
+            }
+        });
+      }
+    });
+  } catch(error) {
+    return new fperr.FlagpoleErr('ERR_CONFIG', 'Could not process config file', error);
   }
 }
 
@@ -306,6 +333,7 @@ function queryAPIs()
 
 
 module.exports = { initialize,
+                   loadAPIConfig,
                    registerAPI,
                    unregisterAPI,
                    queryAPIs };
