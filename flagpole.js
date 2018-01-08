@@ -51,7 +51,8 @@ function registerAPIDirect(name,
   }
 
   // Create our new API token
-  var apiToken = _.toLower(_.trim(name)) + ':' + _.trim(ver);
+  name = _.toLower(_.trim(name));
+  var apiToken = name + ':' + _.trim(ver);
 
   // Has this API already been registered?
   if (registeredAPIsByToken.get(apiToken)) {
@@ -110,7 +111,7 @@ function registerAPIDirect(name,
 
   // Let the API know
   if (newAPI.apiHandler.initialize) {
-    newApi.apiHandler.initialize(serverRestify, apiToken);
+    newAPI.apiHandler.initialize(serverRestify, name, ver, apiToken);
   }
 }
 
