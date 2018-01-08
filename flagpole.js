@@ -28,7 +28,7 @@ function filterMap(map, test)
 }
 
 
-function buildSafePath(fileName)
+function buildSafeFileName(fileName)
 {
   var safeSuffix = path.normalize(fileName).replace(/^(\.\.[\/\\])+/, '');
   var safeName = path.join(apiDir, safeSuffix);
@@ -153,7 +153,7 @@ function registerAPIFromFile(name,
 
   // Try to load up the file
   var newAPI;
-  var safeFileName = buildSafePath(fileName);
+  var safeFileName = buildSafeFileName(fileName);
   try {
     newAPI = require(safeFileName);
   } catch(error) {
@@ -325,7 +325,7 @@ function loadAPIConfig(configFile)
 
   // Load up the file
   var config;
-  var safeFileName = buildSafePath(configFile);
+  var safeFileName = buildSafeFileName(configFile);
   try {
     config = require(safeFileName);
   } catch(error) {
