@@ -334,19 +334,18 @@ function loadAPIConfig(configFile)
 
   // Now process the config data
   try {
-    var apis = config['apis'];
+    var apis = config['apis'], err;
 
     // Process each api in return
     apis.forEach((api) => {
-      if (api.versions) {
+      if (api.versions && !err) {
         api.versions.forEach((ver) => {
-            var err = registerAPI(api.name,
-                                  api.descriptiveName,
-                                  api.description,
-                                  ver.ver,
-                                  ver.fileName);
-            if (err) {
-              return err;
+            if (!err) {
+              err = registerAPI(api.name,
+                                api.descriptiveName,
+                                api.description,
+                                ver.ver,
+                                ver.fileName);
             }
         });
       }
@@ -354,6 +353,7 @@ function loadAPIConfig(configFile)
   } catch(error) {
     return new fperr.FlagpoleErr('ERR_CONFIG', 'Could not process config file', error);
   }
+  return err;
 }
 
 
