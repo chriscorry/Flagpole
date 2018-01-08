@@ -254,6 +254,9 @@ function unregisterAllAPIs()
 {
   registeredAPIsByToken.forEach((apiInfo, apiToken) => {
     unregisterAPIInfo(apiInfo);
+    if (apiInfo.fileName) {
+      delete require.cache[require.resolve(apiInfo.fileName)];
+    }
   });
   registeredAPIsByToken.clear();
 }
@@ -293,8 +296,11 @@ function unregisterAPI(nameOrToken, ver)
         // remove ALL versions of this API, including this one
         (!ver && apiInfo.name === nameOrToken)) {
 
-      // Out with the routes and keep out of map
+      // Out with the routes, remove from the cache, and keep out of map
       unregisterAPIInfo(apiInfo);
+      if (apiInfo.fileName) {
+        delete require.cache[require.resolve(apiInfo.fileName)];
+      }
       found = true;
       return false;
     }
