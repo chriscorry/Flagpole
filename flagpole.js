@@ -1,7 +1,7 @@
 const restify = require('restify');
 const path    = require('path');
 const _       = require('lodash');
-const fperr   = require('./FlagpoleErr');
+const fperr   = require('./flagpoleerr');
 
 
 var serverRestify;
