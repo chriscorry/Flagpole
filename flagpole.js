@@ -5,6 +5,7 @@ const fperr   = require('./FlagpoleErr');
 
 
 var serverRestify;
+var apiDir                = './';
 var requestTypes          = new Map();
 var registeredAPIsByToken = new Map();
 
@@ -27,6 +28,17 @@ function filterMap(map, test)
 }
 
 
+function buildSafePath(fileName)
+{
+  var safeSuffix = path.normalize(fileName).replace(/^(\.\.[\/\\])+/, '');
+  var safeName = path.join(apiDir, safeSuffix);
+  if (!path.isAbsolute(safeName)) {
+    safeName = './' + safeName;
+  }
+  return safeName;
+}
+
+
 /****************************************************************************
  **                                                                        **
  ** PRIVATE registerAPIDirect(...)                                         **
@@ -41,7 +53,10 @@ function registerAPIDirect(name,
                            fileName) // opt
 {
   // Simple validation
-  if (!serverRestify || !name || !ver || !apiHandler) {
+  if (!serverRestify) {
+    return new fperr.FlagpoleErr('ERR_FLAGPOLE_NOT_INIT');
+  }
+  if (!name || !ver || !apiHandler) {
     return new fperr.FlagpoleErr('ERR_BAD_ARG');
   }
 
@@ -128,9 +143,19 @@ function registerAPIFromFile(name,
                              ver,
                              fileName)
 {
+  // Simple validation
+  if (!serverRestify) {
+    return new fperr.FlagpoleErr('ERR_FLAGPOLE_NOT_INIT');
+  }
+  if (!name || !ver) {
+    return new fperr.FlagpoleErr('ERR_BAD_ARG');
+  }
+
+  // Try to load up the file
   var newAPI;
+  var safeFileName = buildSafePath(fileName);
   try {
-    newAPI = require(fileName);
+    newAPI = require(safeFileName);
   } catch(error) {
     return new fperr.FlagpoleErr('ERR_FILE_LOAD', 'Could not load API file', error);
   }
@@ -139,7 +164,7 @@ function registerAPIFromFile(name,
                            description,
                            ver,
                            newAPI,
-                           path.normalize(fileName));
+                           safeFileName);
 }
 
 
@@ -149,8 +174,14 @@ function registerAPIFromFile(name,
  **                                                                        **
  ****************************************************************************/
 
-function initialize(server)
+function initialize(server, opts)
 {
+  // Simple validation
+  if (!server) {
+    throw new fperr.FlagpoleErr('ERR_BAD_ARG');
+  }
+
+  // Set it all up
   serverRestify = server;
   requestTypes.set('get',   serverRestify.get);
   requestTypes.set('post',  serverRestify.post);
@@ -158,6 +189,11 @@ function initialize(server)
   requestTypes.set('patch', serverRestify.patch);
   requestTypes.set('del',   serverRestify.del);
   requestTypes.set('opts',  serverRestify.opts);
+
+  // API dir?
+  if (opts && opts.apiDir) {
+    apiDir = path.resolve(opts.apiDir) + path.sep;
+  }
 }
 
 
@@ -220,7 +256,6 @@ function unregisterAllAPIs()
     unregisterAPIInfo(apiInfo);
   });
   registeredAPIsByToken.clear();
-  return true;
 }
 
 
@@ -233,6 +268,11 @@ function unregisterAllAPIs()
 function unregisterAPI(nameOrToken, ver)
 {
   var found = false;
+
+  // Simple validation
+  if (!serverRestify) {
+    return new fperr.FlagpoleErr('ERR_FLAGPOLE_NOT_INIT');
+  }
 
   // No args means wipe them all out
   if (!nameOrToken && !ver) {
@@ -263,7 +303,10 @@ function unregisterAPI(nameOrToken, ver)
     return true;
   });
 
-  return found;
+  // Was it found?
+  if (!found) {
+    return new fperr.FlagpoleErr('ERR_API_NOT_FOUND');
+  }
 }
 
 
@@ -275,10 +318,16 @@ function unregisterAPI(nameOrToken, ver)
 
 function loadAPIConfig(configFile)
 {
+  // Simple validation
+  if (!serverRestify) {
+    return new fperr.FlagpoleErr('ERR_FLAGPOLE_NOT_INIT');
+  }
+
   // Load up the file
   var config;
+  var safeFileName = buildSafePath(configFile);
   try {
-    config = require(configFile);
+    config = require(safeFileName);
   } catch(error) {
     return new fperr.FlagpoleErr('ERR_FILE_LOAD', 'Could not load config file', error);
   }

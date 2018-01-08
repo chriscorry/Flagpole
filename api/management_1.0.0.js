@@ -7,6 +7,7 @@ const _        = require('lodash');
 
 var nameThisAPI, verThisAPI;
 
+
 function initialize(serverRestify, name, ver, apiToken)
 {
   nameThisAPI = name;
