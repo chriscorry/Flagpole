@@ -1,7 +1,8 @@
-const restify = require('restify');
-const path    = require('path');
-const _       = require('lodash');
-const fperr   = require('./flagpoleerr');
+const restify          = require('restify');
+const path             = require('path');
+const _                = require('lodash');
+const utils            = require('../util/pancake-utils');
+const { PancakeError } = require('../util/pancake-err');
 
 
 var serverRestify;
@@ -15,18 +16,6 @@ var registeredAPIsByToken = new Map();
  ** Utilities                                                              **
  **                                                                        **
  ****************************************************************************/
-
-function filterMap(map, test)
-{
-  var newMap = new Map();
-  map.forEach((value, key) => {
-    if (test(key, value)) {
-      newMap.set(key, value);
-    }
-  });
-  return newMap;
-}
-
 
 function buildSafeFileName(fileName)
 {
@@ -54,15 +43,15 @@ function registerAPIDirect(name,
 {
   // Simple validation
   if (!serverRestify) {
-    return new fperr.FlagpoleErr('ERR_FLAGPOLE_NOT_INIT');
+    return new PancakeError('ERR_FLAGPOLE_NOT_INIT');
   }
   if (!name || !ver || !apiHandler) {
-    return new fperr.FlagpoleErr('ERR_BAD_ARG');
+    return new PancakeError('ERR_BAD_ARG');
   }
 
   // Validate version format
   if (!ver.match(/(\d+\.)?(\d+\.)?(\d+)/)) {
-    return new fperr.FlagpoleErr('ERR_BAD_ARG', 'Invalid version format');
+    return new PancakeError('ERR_BAD_ARG', 'Invalid version format');
   }
 
   // Create our new API token
@@ -107,8 +96,8 @@ function registerAPIDirect(name,
         }
       }
       else {
-        throw new fperr.FlagpoleErr('ERR_REGISTER_ROUTE',
-                                    `Bad request type: "${pathInfo.requestType}"`);
+        throw new PancakeError('ERR_REGISTER_ROUTE',
+                               `Bad request type: "${pathInfo.requestType}"`);
       }
     });
   }
@@ -116,9 +105,9 @@ function registerAPIDirect(name,
     if (error instanceof fperr.FlagpoleErr) {
       return error;
     }
-    return new fperr.FlagpoleErr('ERR_REGISTER_ROUTE',
-                                 `Could not register route: "${pathInfo.requestType}", "${pathInfo.path}", ${newAPI.ver}`,
-                                 error);
+    return new PancakeError('ERR_REGISTER_ROUTE',
+                            `Could not register route: "${pathInfo.requestType}", "${pathInfo.path}", ${newAPI.ver}`,
+                            error);
   }
 
   // Add to the main API collection
@@ -145,10 +134,10 @@ function registerAPIFromFile(name,
 {
   // Simple validation
   if (!serverRestify) {
-    return new fperr.FlagpoleErr('ERR_FLAGPOLE_NOT_INIT');
+    return new PancakeError('ERR_FLAGPOLE_NOT_INIT');
   }
   if (!name || !ver) {
-    return new fperr.FlagpoleErr('ERR_BAD_ARG');
+    return new PancakeError('ERR_BAD_ARG');
   }
 
   // Try to load up the file
@@ -157,7 +146,7 @@ function registerAPIFromFile(name,
   try {
     newAPI = require(safeFileName);
   } catch(error) {
-    return new fperr.FlagpoleErr('ERR_FILE_LOAD', 'Could not load API file', error);
+    return new PancakeError('ERR_FILE_LOAD', 'Could not load API file', error);
   }
   return registerAPIDirect(name,
                            descriptiveName,
@@ -178,7 +167,7 @@ function initialize(server, opts)
 {
   // Simple validation
   if (!server) {
-    throw new fperr.FlagpoleErr('ERR_BAD_ARG');
+    throw new PancakeError('ERR_BAD_ARG');
   }
 
   // Set it all up
@@ -274,7 +263,7 @@ function unregisterAPI(nameOrToken, ver)
 
   // Simple validation
   if (!serverRestify) {
-    return new fperr.FlagpoleErr('ERR_FLAGPOLE_NOT_INIT');
+    return new PancakeError('ERR_FLAGPOLE_NOT_INIT');
   }
 
   // No args means wipe them all out
@@ -283,7 +272,7 @@ function unregisterAPI(nameOrToken, ver)
   }
 
   // Move through the map and process each item
-  registeredAPIsByToken = filterMap(registeredAPIsByToken, (apiToken, apiInfo) => {
+  registeredAPIsByToken = utils.filterMap(registeredAPIsByToken, (apiToken, apiInfo) => {
 
     // If a version was specified, nameOrToken is a name and only the
     // specified version should be removed
@@ -311,7 +300,7 @@ function unregisterAPI(nameOrToken, ver)
 
   // Was it found?
   if (!found) {
-    return new fperr.FlagpoleErr('ERR_API_NOT_FOUND');
+    return new PancakeError('ERR_API_NOT_FOUND');
   }
 }
 
@@ -326,7 +315,7 @@ function loadAPIConfig(configFile)
 {
   // Simple validation
   if (!serverRestify) {
-    return new fperr.FlagpoleErr('ERR_FLAGPOLE_NOT_INIT');
+    return new PancakeError('ERR_FLAGPOLE_NOT_INIT');
   }
 
   // Load up the file
@@ -335,7 +324,7 @@ function loadAPIConfig(configFile)
   try {
     config = require(safeFileName);
   } catch(error) {
-    return new fperr.FlagpoleErr('ERR_FILE_LOAD', 'Could not load config file', error);
+    return new PancakeError('ERR_FILE_LOAD', 'Could not load config file', error);
   }
 
   // Now process the config data
@@ -357,7 +346,7 @@ function loadAPIConfig(configFile)
       }
     });
   } catch(error) {
-    return new fperr.FlagpoleErr('ERR_CONFIG', 'Could not process config file', error);
+    return new PancakeError('ERR_CONFIG', 'Could not process config file', error);
   }
   return err;
 }
