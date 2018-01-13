@@ -1,4 +1,5 @@
 const path             = require('path');
+const fs               = require('fs');
 const restify          = require('restify');
 const _                = require('lodash');
 const utils            = require('../util/pancake-utils');
@@ -7,7 +8,7 @@ const { PancakeError } = require('../util/pancake-err');
 
 var serverRestify;
 var log                   = utils.log;
-var apiDir                = './';
+var apiSearchDirs         = [];
 var requestTypes          = new Map();
 var registeredAPIsByToken = new Map();
 
@@ -136,21 +137,37 @@ function registerAPIFromFile(name,
   }
 
   // Try to load up the file
-  var newAPI;
-  var safeFileName = utils.buildSafeFileName(fileName, apiDir);
-  try {
-    newAPI = require(safeFileName);
-  } catch(error) {
-    log.trace(`FP: ERR_FILE_LOAD: Could not load API file ${safeFileName}`);
-    log.trace(error);
-    return new PancakeError('ERR_FILE_LOAD', 'Could not load API file', error);
+  var newAPI, err;
+  apiSearchDirs.find((apiDir) => {
+
+    // Search through each api dir
+    var safeFileName = utils.buildSafeFileName(fileName, apiDir);
+    if (fs.existsSync(safeFileName)) {
+      try {
+        // Load it...
+        newAPI = require(safeFileName);
+
+        // ... and register it
+        err = registerAPIDirect(name,
+                                descriptiveName,
+                                description,
+                                ver,
+                                newAPI,
+                                safeFileName);
+
+      // Swallow the exception
+      } catch(error) {
+        err = error;
+      }
+      return true;
+    }
+  });
+
+  // No dice
+  if (!newAPI) {
+    log.trace(`FP: ERR_FILE_LOAD: Could not load API file ${fileName}`, err);
+    return new PancakeError('ERR_FILE_LOAD', `Could not load API file ${fileName}`, err);
   }
-  return registerAPIDirect(name,
-                           descriptiveName,
-                           description,
-                           ver,
-                           newAPI,
-                           safeFileName);
 }
 
 
@@ -177,9 +194,14 @@ function initialize(server, opts)
   requestTypes.set('del',   serverRestify.del);
   requestTypes.set('opts',  serverRestify.opts);
 
-  // API dir?
-  if (opts && opts.apiDir) {
-    apiDir = path.resolve(opts.apiDir) + path.sep;
+  // API dirs
+  if (opts && opts.apiSearchDirs) {
+    opts.apiSearchDirs.split(path.delimiter).forEach((dir) => {
+      apiSearchDirs.push(path.resolve(dir) + path.sep);
+    });
+  }
+  else {
+    apiSearchDirs = [ '.' + path.sep ];
   }
 }
 
@@ -337,22 +359,37 @@ function loadAPIConfig(configFile)
     log.trace(`FP: ERR_FLAGPOLE_NOT_INIT`);
     return new PancakeError('ERR_FLAGPOLE_NOT_INIT');
   }
+  if (!configFile) {
+    log.trace(`FP: ERR_NO_CONFIG_FILE`);
+    return new PancakeError('ERR_NO_CONFIG_FILE');
+  }
 
   // Load up the file
-  var config;
-  var safeFileName = utils.buildSafeFileName(configFile, apiDir);
-  try {
-    config = require(safeFileName);
-  } catch(error) {
-    log.trace(`FP: ERR_FILE_LOAD: Could not load API config file.`);
-    log.trace(error);
-    return new PancakeError('ERR_FILE_LOAD', 'Could not load API config file', error);
+  var config, err, safeFileName;
+  apiSearchDirs.find((apiDir) => {
+
+    // Search through each api dir
+    var safeFileName = utils.buildSafeFileName(configFile, apiDir);
+    if (fs.existsSync(safeFileName)) {
+      try {
+        config = require(safeFileName);
+        log.trace(`FP: Loading API config file (${safeFileName})...`);
+      } catch(error) {
+        err = error;
+      }
+      return true;
+    }
+  });
+  if (!config) {
+    log.trace(`FP: ERR_FILE_LOAD: Could not load API config file (${configFile})`);
+    if (err) log.trace(err);
+    return new PancakeError('ERR_FILE_LOAD', `Could not load API config file (${configFile})`, err);
   }
-  log.trace(`FP: Loading API config file (${safeFileName})...`);
 
   // Now process the config data
+  err = undefined;
   try {
-    var apis = config['apis'], err;
+    var apis = config.apis;
 
     // Process each api in return
     apis.forEach((api) => {
